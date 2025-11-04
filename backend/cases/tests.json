@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Get all cases",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": [
+        {
+          "id": "number",
+          "name": "string",
+          "price": "number"
+        }
+      ],
+      "bodyMatcher": "partial"
+    }
+  ]
+}

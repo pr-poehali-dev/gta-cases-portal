@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "Open case successfully",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "user_id": 1,
+        "case_id": 1
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "item": {
+          "name": "string",
+          "rarity": "string"
+        },
+        "promo_code": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
