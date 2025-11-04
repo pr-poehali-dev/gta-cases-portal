@@ -180,7 +180,7 @@ export default function Index() {
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <Icon name="Package" size={24} className="text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold">GTA 5 RP Cases</h1>
+            <h1 className="text-2xl font-bold">IILUSION RP</h1>
           </div>
           
           <div className="flex items-center gap-4">
