@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import Icon from '@/components/ui/icon'
 import { toast } from '@/hooks/use-toast'
 import AdminPanel from '@/components/AdminPanel'
+import CaseOpening from '@/components/CaseOpening'
 
 interface User {
   id: number
@@ -35,6 +36,7 @@ interface Promocode {
   rarity: string
   description: string
   case_name: string
+  case_price: number
 }
 
 interface CaseItem {
@@ -70,11 +72,8 @@ export default function Index() {
   const [openingCase, setOpeningCase] = useState(false)
   const [wonItem, setWonItem] = useState<CaseItem | null>(null)
   const [wonPromocode, setWonPromocode] = useState<string>('')
-  const [adminStats, setAdminStats] = useState<any>(null)
-  const [allUsers, setAllUsers] = useState<any[]>([])
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null)
-  const [editingCase, setEditingCase] = useState(false)
-  const [editingUser, setEditingUser] = useState<any>(null)
+  const [allCaseItems, setAllCaseItems] = useState<CaseItem[]>([])
+  const [openingCaseId, setOpeningCaseId] = useState<number | null>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -135,13 +134,30 @@ export default function Index() {
     }
   }
 
+  const loadCaseItems = async (caseId: number) => {
+    try {
+      const res = await fetch(`${API.cases}?case_id=${caseId}`)
+      const data = await res.json()
+      if (data.items) {
+        setAllCaseItems(data.items)
+      }
+    } catch (error) {
+      console.error('Error loading case items')
+    }
+  }
+
   const handleOpenCase = async (caseId: number) => {
     if (!user) {
       setAuthOpen(true)
       return
     }
 
+    setOpeningCaseId(caseId)
     setOpeningCase(true)
+    setWonItem(null)
+    
+    await loadCaseItems(caseId)
+
     try {
       const res = await fetch(API.openCase, {
         method: 'POST',
@@ -154,10 +170,7 @@ export default function Index() {
         setWonItem(data.item)
         setWonPromocode(data.promo_code)
         setUser({ ...user, balance: data.new_balance })
-        setTimeout(() => {
-          setOpeningCase(false)
-          loadPromocodes()
-        }, 3000)
+        loadPromocodes()
       } else {
         toast({ title: data.error || 'Ошибка открытия кейса', variant: 'destructive' })
         setOpeningCase(false)
@@ -166,6 +179,36 @@ export default function Index() {
       toast({ title: 'Ошибка подключения', variant: 'destructive' })
       setOpeningCase(false)
     }
+  }
+
+  const handleSellPromo = async (promoId: number) => {
+    if (!user) return
+    
+    try {
+      const res = await fetch(API.promocodes, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promo_id: promoId, user_id: user.id })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        toast({ title: `Продано за ${data.sold_for.toFixed(2)} ₽!` })
+        setUser({ ...user, balance: data.new_balance })
+        loadPromocodes()
+      } else {
+        toast({ title: data.error || 'Ошибка продажи', variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка подключения', variant: 'destructive' })
+    }
+  }
+
+  const closeOpeningDialog = () => {
+    setOpeningCase(false)
+    setWonItem(null)
+    setWonPromocode('')
+    setAllCaseItems([])
   }
 
   const logout = () => {
@@ -238,11 +281,14 @@ export default function Index() {
           </TabsList>
 
           <TabsContent value="cases" className="space-y-6">
-            <div className="text-center mb-8">
-              <h2 className="text-5xl font-bold mb-3 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-pulse">
+            <div className="text-center mb-12 relative">
+              <div className="absolute inset-0 flex items-center justify-center blur-3xl opacity-30">
+                <div className="w-96 h-96 bg-gradient-to-r from-primary via-secondary to-accent rounded-full"></div>
+              </div>
+              <h2 className="text-6xl font-bold mb-4 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent relative z-10" style={{animation: 'float 4s ease-in-out infinite'}}>
                 Выбери свой кейс
               </h2>
-              <p className="text-lg text-muted-foreground">Открывай кейсы и получай промокоды для игры!</p>
+              <p className="text-xl text-muted-foreground relative z-10">Открывай кейсы и получай промокоды для игры!</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -285,9 +331,14 @@ export default function Index() {
           </TabsContent>
 
           <TabsContent value="promocodes" className="space-y-6">
-            <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold mb-2">Твои промокоды</h2>
-              <p className="text-muted-foreground">Активируй их в игре для получения предметов</p>
+            <div className="text-center mb-10 relative">
+              <div className="absolute inset-0 flex items-center justify-center blur-3xl opacity-20">
+                <div className="w-80 h-80 bg-gradient-to-r from-accent to-primary rounded-full"></div>
+              </div>
+              <h2 className="text-5xl font-bold mb-3 bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent relative z-10">
+                Твои промокоды
+              </h2>
+              <p className="text-lg text-muted-foreground relative z-10">Активируй их в игре или продай обратно</p>
             </div>
 
             {promocodes.length === 0 ? (
@@ -319,14 +370,28 @@ export default function Index() {
                           size="sm" 
                           variant="ghost"
                           onClick={() => copyPromocode(promo.promo_code)}
+                          disabled={promo.is_used}
                         >
                           <Icon name="Copy" size={16} />
                         </Button>
                       </div>
                       
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(promo.created_at).toLocaleDateString('ru-RU')}
-                      </p>
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(promo.created_at).toLocaleDateString('ru-RU')}
+                        </p>
+                        {!promo.is_used && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSellPromo(promo.id)}
+                            className="text-xs"
+                          >
+                            <Icon name="DollarSign" size={14} className="mr-1" />
+                            Продать за {(promo.case_price * 0.5).toFixed(0)} ₽
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -392,39 +457,14 @@ export default function Index() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openingCase} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl">
-          <div className="text-center space-y-6 py-8">
-            {wonItem ? (
-              <>
-                <div className="text-6xl animate-bounce">🎉</div>
-                <h2 className="text-3xl font-bold">Поздравляем!</h2>
-                <div className="bg-gradient-to-br from-primary/20 to-accent/20 p-8 rounded-xl">
-                  <h3 className="text-2xl font-bold mb-2">{wonItem.name}</h3>
-                  <Badge className={`${rarityColors[wonItem.rarity as keyof typeof rarityColors]} text-lg px-4 py-1`}>
-                    {wonItem.rarity}
-                  </Badge>
-                  <p className="text-muted-foreground mt-4">{wonItem.description}</p>
-                </div>
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Твой промокод:</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="font-mono font-bold text-2xl text-primary">{wonPromocode}</code>
-                    <Button size="sm" onClick={() => copyPromocode(wonPromocode)}>
-                      <Icon name="Copy" size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-6xl animate-spin">📦</div>
-                <h2 className="text-2xl font-bold">Открываем кейс...</h2>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CaseOpening
+        isOpen={openingCase}
+        wonItem={wonItem}
+        wonPromocode={wonPromocode}
+        onClose={closeOpeningDialog}
+        onCopy={copyPromocode}
+        allItems={allCaseItems}
+      />
     </div>
   )
 }

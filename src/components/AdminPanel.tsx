@@ -9,6 +9,89 @@ import Icon from '@/components/ui/icon'
 import { toast } from '@/hooks/use-toast'
 import { Textarea } from '@/components/ui/textarea'
 
+function ItemForm({ cases, onSubmit }: { cases: any[], onSubmit: (caseId: string, name: string, desc: string, rarity: string, chance: string) => Promise<boolean> }) {
+  const [selectedCaseId, setSelectedCaseId] = useState('')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [rarity, setRarity] = useState('common')
+  const [dropChance, setDropChance] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const success = await onSubmit(selectedCaseId, name, description, rarity, dropChance)
+    if (success) {
+      setName('')
+      setDescription('')
+      setDropChance('')
+      setRarity('common')
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Добавить предмет в кейс</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
+          <div>
+            <Label>Кейс</Label>
+            <Select value={selectedCaseId} onValueChange={setSelectedCaseId} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите кейс" />
+              </SelectTrigger>
+              <SelectContent>
+                {cases.map((c) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Название предмета</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div>
+            <Label>Описание</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} required />
+          </div>
+          <div>
+            <Label>Редкость</Label>
+            <Select value={rarity} onValueChange={setRarity}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="common">Common</SelectItem>
+                <SelectItem value="rare">Rare</SelectItem>
+                <SelectItem value="epic">Epic</SelectItem>
+                <SelectItem value="legendary">Legendary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Шанс выпадения (%)</Label>
+            <Input 
+              value={dropChance} 
+              onChange={(e) => setDropChance(e.target.value)} 
+              type="number" 
+              step="0.01" 
+              min="0" 
+              max="100" 
+              required 
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={!selectedCaseId}>
+            Добавить предмет
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface AdminPanelProps {
   userId: number
 }
@@ -149,10 +232,7 @@ export default function AdminPanel({ userId }: AdminPanelProps) {
     }
   }
 
-  const createItem = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    
+  const createItem = async (caseId: string, name: string, description: string, rarity: string, dropChance: string) => {
     try {
       const res = await fetch(API_ADMIN, {
         method: 'POST',
@@ -162,20 +242,22 @@ export default function AdminPanel({ userId }: AdminPanelProps) {
         },
         body: JSON.stringify({
           action: 'create_item',
-          case_id: parseInt(formData.get('case_id') as string),
-          name: formData.get('name'),
-          description: formData.get('description'),
-          rarity: formData.get('rarity'),
-          drop_chance: parseFloat(formData.get('drop_chance') as string)
+          case_id: parseInt(caseId),
+          name,
+          description,
+          rarity,
+          drop_chance: parseFloat(dropChance)
         })
       })
       const data = await res.json()
       if (data.success) {
         toast({ title: 'Предмет добавлен' })
-        e.currentTarget.reset()
+        return true
       }
+      return false
     } catch (error) {
       toast({ title: 'Ошибка добавления предмета', variant: 'destructive' })
+      return false
     }
   }
 
@@ -346,57 +428,7 @@ export default function AdminPanel({ userId }: AdminPanelProps) {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Добавить предмет в кейс</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={createItem} className="space-y-4 max-w-xl">
-                <div>
-                  <Label>Кейс</Label>
-                  <Select name="case_id" required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите кейс" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cases.map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Название предмета</Label>
-                  <Input name="name" required />
-                </div>
-                <div>
-                  <Label>Описание</Label>
-                  <Textarea name="description" required />
-                </div>
-                <div>
-                  <Label>Редкость</Label>
-                  <Select name="rarity" defaultValue="common">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="common">Common</SelectItem>
-                      <SelectItem value="rare">Rare</SelectItem>
-                      <SelectItem value="epic">Epic</SelectItem>
-                      <SelectItem value="legendary">Legendary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Шанс выпадения (%)</Label>
-                  <Input name="drop_chance" type="number" step="0.01" min="0" max="100" required />
-                </div>
-                <Button type="submit" className="w-full">Добавить предмет</Button>
-              </form>
-            </CardContent>
-          </Card>
+          <ItemForm cases={cases} onSubmit={createItem} />
         </TabsContent>
       </Tabs>
 
