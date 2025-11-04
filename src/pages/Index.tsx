@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import Icon from '@/components/ui/icon'
 import { toast } from '@/hooks/use-toast'
+import AdminPanel from '@/components/AdminPanel'
 
 interface User {
   id: number
@@ -48,7 +49,8 @@ const API = {
   auth: 'https://functions.poehali.dev/2683cf66-ae47-4961-a937-86b9459ed44d',
   cases: 'https://functions.poehali.dev/a6cc4837-3e34-4908-895c-15f350d4bf82',
   openCase: 'https://functions.poehali.dev/5cfb3c0a-db96-4cd3-af03-bbd6fca3f334',
-  promocodes: 'https://functions.poehali.dev/25402768-5a7d-4294-b821-840ad2c01266'
+  promocodes: 'https://functions.poehali.dev/25402768-5a7d-4294-b821-840ad2c01266',
+  admin: 'https://functions.poehali.dev/95f066f2-b22c-4926-97d8-63e7dbfcf506'
 }
 
 const rarityColors = {
@@ -64,9 +66,15 @@ export default function Index() {
   const [cases, setCases] = useState<Case[]>([])
   const [promocodes, setPromocodes] = useState<Promocode[]>([])
   const [activeTab, setActiveTab] = useState('cases')
+  const [adminTab, setAdminTab] = useState('dashboard')
   const [openingCase, setOpeningCase] = useState(false)
   const [wonItem, setWonItem] = useState<CaseItem | null>(null)
   const [wonPromocode, setWonPromocode] = useState<string>('')
+  const [adminStats, setAdminStats] = useState<any>(null)
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null)
+  const [editingCase, setEditingCase] = useState(false)
+  const [editingUser, setEditingUser] = useState<any>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -174,21 +182,23 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-border bg-gradient-to-r from-card/80 via-card/90 to-card/80 backdrop-blur-md sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <Icon name="Package" size={24} className="text-primary-foreground" />
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
+              <Icon name="Package" size={26} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold">IILUSION RP</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              GTA 5 RP Cases
+            </h1>
           </div>
           
           <div className="flex items-center gap-4">
             {user ? (
               <>
-                <div className="flex items-center gap-2 bg-secondary/20 px-4 py-2 rounded-lg">
+                <div className="flex items-center gap-2 bg-gradient-to-r from-secondary/30 to-secondary/10 px-4 py-2 rounded-lg border border-secondary/30 shadow-md">
                   <Icon name="Coins" size={20} className="text-secondary" />
-                  <span className="font-bold text-secondary">{user.balance.toFixed(2)} ₽</span>
+                  <span className="font-bold text-secondary text-lg">{user.balance.toFixed(2)} ₽</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Icon name="User" size={18} />
@@ -210,7 +220,7 @@ export default function Index() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+          <TabsList className={`grid w-full max-w-md mx-auto mb-8 ${user?.is_admin ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="cases">
               <Icon name="Package" size={18} className="mr-2" />
               Кейсы
@@ -219,27 +229,36 @@ export default function Index() {
               <Icon name="Ticket" size={18} className="mr-2" />
               Мои промокоды
             </TabsTrigger>
+            {user?.is_admin && (
+              <TabsTrigger value="admin">
+                <Icon name="Shield" size={18} className="mr-2" />
+                Админ
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="cases" className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold mb-2">Выбери свой кейс</h2>
-              <p className="text-muted-foreground">Открывай кейсы и получай промокоды для игры!</p>
+              <h2 className="text-5xl font-bold mb-3 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-pulse">
+                Выбери свой кейс
+              </h2>
+              <p className="text-lg text-muted-foreground">Открывай кейсы и получай промокоды для игры!</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {cases.map((caseItem) => (
                 <Card 
                   key={caseItem.id} 
-                  className="overflow-hidden hover:scale-105 transition-transform duration-300 relative group"
+                  className="case-card-glow overflow-hidden hover:scale-105 transition-all duration-300 relative group bg-gradient-to-br from-card to-card/50"
                 >
                   <div className="absolute top-3 right-3 z-10">
                     <Badge className={rarityColors[caseItem.rarity as keyof typeof rarityColors]}>
                       {caseItem.rarity}
                     </Badge>
                   </div>
-                  <div className="aspect-[3/4] bg-gradient-to-br from-muted to-background p-6 flex items-center justify-center">
-                    <div className="text-6xl group-hover:scale-110 transition-transform">
+                  <div className="aspect-[3/4] bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10 p-6 flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer"></div>
+                    <div className="text-7xl group-hover:scale-110 transition-transform relative z-10" style={{animation: 'float 3s ease-in-out infinite'}}>
                       📦
                     </div>
                   </div>
@@ -314,6 +333,12 @@ export default function Index() {
               </div>
             )}
           </TabsContent>
+
+          {user?.is_admin && (
+            <TabsContent value="admin">
+              <AdminPanel userId={user.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 
