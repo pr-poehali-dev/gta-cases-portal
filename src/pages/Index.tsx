@@ -47,6 +47,16 @@ interface CaseItem {
   image_url: string
 }
 
+interface MarketItem {
+  id: number
+  price: number
+  item_name: string
+  item_rarity: string
+  item_description: string
+  created_at: string
+  seller_name: string
+}
+
 const API = {
   auth: 'https://functions.poehali.dev/2683cf66-ae47-4961-a937-86b9459ed44d',
   cases: 'https://functions.poehali.dev/a6cc4837-3e34-4908-895c-15f350d4bf82',
@@ -74,6 +84,10 @@ export default function Index() {
   const [wonPromocode, setWonPromocode] = useState<string>('')
   const [allCaseItems, setAllCaseItems] = useState<CaseItem[]>([])
   const [openingCaseId, setOpeningCaseId] = useState<number | null>(null)
+  const [marketItems, setMarketItems] = useState<MarketItem[]>([])
+  const [sellDialogOpen, setSellDialogOpen] = useState(false)
+  const [selectedPromoForSale, setSelectedPromoForSale] = useState<Promocode | null>(null)
+  const [salePrice, setSalePrice] = useState('')
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -82,6 +96,7 @@ export default function Index() {
       setUser(JSON.parse(savedUser))
     }
     loadCases()
+    loadMarket()
   }, [])
 
   useEffect(() => {
@@ -223,6 +238,76 @@ export default function Index() {
     toast({ title: 'Промокод скопирован!' })
   }
 
+  const loadMarket = async () => {
+    try {
+      const res = await fetch(`${API.promocodes}?action=market`)
+      const data = await res.json()
+      setMarketItems(data)
+    } catch (error) {
+      console.error('Error loading market')
+    }
+  }
+
+  const handleListOnMarket = async (price: number) => {
+    if (!user || !selectedPromoForSale) return
+    
+    try {
+      const res = await fetch(API.promocodes, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'list_market',
+          promo_id: selectedPromoForSale.id,
+          user_id: user.id,
+          price
+        })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        toast({ title: 'Выставлено на маркет!' })
+        setSellDialogOpen(false)
+        setSelectedPromoForSale(null)
+        setSalePrice('')
+        loadPromocodes()
+        loadMarket()
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка', variant: 'destructive' })
+    }
+  }
+
+  const handleBuyFromMarket = async (marketId: number) => {
+    if (!user) {
+      setAuthOpen(true)
+      return
+    }
+    
+    try {
+      const res = await fetch(API.promocodes, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'buy_market',
+          market_id: marketId,
+          user_id: user.id
+        })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        toast({ title: 'Куплено!' })
+        setUser({ ...user, balance: data.new_balance })
+        loadMarket()
+        loadPromocodes()
+      } else {
+        toast({ title: data.error || 'Ошибка покупки', variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'Ошибка подключения', variant: 'destructive' })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-gradient-to-r from-card/80 via-card/90 to-card/80 backdrop-blur-md sticky top-0 z-50 shadow-lg">
@@ -263,10 +348,14 @@ export default function Index() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full max-w-md mx-auto mb-8 ${user?.is_admin ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full max-w-3xl mx-auto mb-8 ${user?.is_admin ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="cases">
               <Icon name="Package" size={18} className="mr-2" />
               Кейсы
+            </TabsTrigger>
+            <TabsTrigger value="market">
+              <Icon name="ShoppingCart" size={18} className="mr-2" />
+              Маркет
             </TabsTrigger>
             <TabsTrigger value="promocodes" disabled={!user}>
               <Icon name="Ticket" size={18} className="mr-2" />
@@ -330,6 +419,64 @@ export default function Index() {
             </div>
           </TabsContent>
 
+          <TabsContent value="market" className="space-y-6">
+            <div className="text-center mb-10 relative">
+              <div className="absolute inset-0 flex items-center justify-center blur-3xl opacity-20">
+                <div className="w-80 h-80 bg-gradient-to-r from-secondary to-accent rounded-full"></div>
+              </div>
+              <h2 className="text-5xl font-bold mb-3 bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent relative z-10">
+                Маркетплейс
+              </h2>
+              <p className="text-lg text-muted-foreground relative z-10">Покупай предметы у других игроков</p>
+            </div>
+
+            {marketItems.length === 0 ? (
+              <div className="text-center py-12">
+                <Icon name="Store" size={64} className="mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Пока никто ничего не продает</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {marketItems.map((item) => (
+                  <Card key={item.id} className="overflow-hidden hover:scale-105 transition-all bg-gradient-to-br from-card to-card/50 border-primary/20">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-bold text-lg">{item.item_name}</h3>
+                          <p className="text-xs text-muted-foreground">Продавец: {item.seller_name}</p>
+                        </div>
+                        <Badge className={rarityColors[item.item_rarity as keyof typeof rarityColors]}>
+                          {item.item_rarity}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground line-clamp-2">{item.item_description}</p>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border">
+                        <div className="flex items-center gap-1 text-secondary font-bold text-xl">
+                          <Icon name="Coins" size={20} />
+                          <span>{item.price} ₽</span>
+                        </div>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleBuyFromMarket(item.id)}
+                          disabled={!user}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          Купить
+                        </Button>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString('ru-RU')}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="promocodes" className="space-y-6">
             <div className="text-center mb-10 relative">
               <div className="absolute inset-0 flex items-center justify-center blur-3xl opacity-20">
@@ -381,15 +528,29 @@ export default function Index() {
                           {new Date(promo.created_at).toLocaleDateString('ru-RU')}
                         </p>
                         {!promo.is_used && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSellPromo(promo.id)}
-                            className="text-xs"
-                          >
-                            <Icon name="DollarSign" size={14} className="mr-1" />
-                            Продать за {(promo.case_price * 0.5).toFixed(0)} ₽
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSellPromo(promo.id)}
+                              className="text-xs"
+                            >
+                              <Icon name="DollarSign" size={14} className="mr-1" />
+                              Продать {(promo.case_price * 0.5).toFixed(0)} ₽
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => {
+                                setSelectedPromoForSale(promo)
+                                setSellDialogOpen(true)
+                              }}
+                              className="text-xs bg-primary"
+                            >
+                              <Icon name="ShoppingCart" size={14} className="mr-1" />
+                              На маркет
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -465,6 +626,59 @@ export default function Index() {
         onCopy={copyPromocode}
         allItems={allCaseItems}
       />
+
+      <Dialog open={sellDialogOpen} onOpenChange={setSellDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Выставить на маркет</DialogTitle>
+          </DialogHeader>
+          {selectedPromoForSale && (
+            <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="font-bold text-lg">{selectedPromoForSale.item_name}</p>
+                <Badge className={`${rarityColors[selectedPromoForSale.rarity as keyof typeof rarityColors]} mt-2`}>
+                  {selectedPromoForSale.rarity}
+                </Badge>
+              </div>
+              
+              <div>
+                <Label>Цена (₽)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={salePrice}
+                  onChange={(e) => setSalePrice(e.target.value)}
+                  placeholder="Введите цену"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Рекомендуемая цена: {(selectedPromoForSale.case_price * 0.7).toFixed(0)} ₽
+                </p>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => handleListOnMarket(parseFloat(salePrice))}
+                  disabled={!salePrice || parseFloat(salePrice) <= 0}
+                  className="flex-1"
+                >
+                  Выставить
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSellDialogOpen(false)
+                    setSelectedPromoForSale(null)
+                    setSalePrice('')
+                  }}
+                >
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

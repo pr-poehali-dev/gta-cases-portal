@@ -16,13 +16,19 @@ def generate_promo_code(length: int = 12) -> str:
     return ''.join(random.choice(chars) for _ in range(length))
 
 def select_item_by_chance(items: list) -> dict:
-    total_chance = sum(float(item['drop_chance']) for item in items)
-    rand = random.uniform(0, total_chance)
+    if not items:
+        raise ValueError('No items in case')
     
-    current = 0
+    total_chance = sum(float(item['drop_chance']) for item in items)
+    if total_chance <= 0:
+        return random.choice(items)
+    
+    rand_value = random.uniform(0, total_chance)
+    cumulative = 0
+    
     for item in items:
-        current += float(item['drop_chance'])
-        if rand <= current:
+        cumulative += float(item['drop_chance'])
+        if rand_value < cumulative:
             return item
     
     return items[-1]
