@@ -40,7 +40,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         if case_id:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT c.*, 
                        json_agg(
                            json_build_object(
@@ -52,11 +52,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                'image_url', ci.image_url
                            )
                        ) as items
-                FROM cases c
-                LEFT JOIN case_items ci ON c.id = ci.case_id
-                WHERE c.id = %s
+                FROM t_p36789279_gta_cases_portal.cases c
+                LEFT JOIN t_p36789279_gta_cases_portal.case_items ci ON c.id = ci.case_id
+                WHERE c.id = {case_id}
                 GROUP BY c.id
-            """, (case_id,))
+            """)
             
             case = cursor.fetchone()
             if not case:
@@ -77,7 +77,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             cursor.execute("""
                 SELECT id, name, description, price, image_url, rarity, created_at
-                FROM cases
+                FROM t_p36789279_gta_cases_portal.cases
                 ORDER BY price ASC
             """)
             

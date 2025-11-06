@@ -107,14 +107,28 @@ export default function Index() {
 
   const loadCases = async () => {
     try {
-      const res = await fetch(API.cases)
-      if (!res.ok) throw new Error('Network error')
+      console.log('Fetching cases from:', API.cases)
+      const res = await fetch(API.cases, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      console.log('Response status:', res.status)
+      if (!res.ok) {
+        console.error('Response not ok:', res.status, res.statusText)
+        throw new Error('Network error')
+      }
       const data = await res.json()
-      if (Array.isArray(data)) {
+      console.log('Cases loaded:', data.length, 'cases')
+      if (Array.isArray(data) && data.length > 0) {
         setCases(data)
+      } else {
+        console.warn('No cases returned or invalid format')
       }
     } catch (error) {
       console.error('Error loading cases:', error)
+      toast({ title: 'Не удалось загрузить кейсы', description: 'Попробуй перезагрузить страницу', variant: 'destructive' })
     }
   }
 
