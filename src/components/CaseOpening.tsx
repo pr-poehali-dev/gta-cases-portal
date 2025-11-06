@@ -38,6 +38,7 @@ const rarityEmojis = {
 export default function CaseOpening({ isOpen, wonItem, wonPromocode, onClose, onCopy, allItems }: CaseOpeningProps) {
   const [isSpinning, setIsSpinning] = useState(false)
   const [showResult, setShowResult] = useState(false)
+  const [particles, setParticles] = useState<Array<{id: number, x: number, y: number}>>([])
 
   useEffect(() => {
     if (isOpen && wonItem) {
@@ -47,7 +48,14 @@ export default function CaseOpening({ isOpen, wonItem, wonPromocode, onClose, on
       setTimeout(() => {
         setIsSpinning(false)
         setShowResult(true)
-      }, 3000)
+        
+        const newParticles = Array.from({length: 30}, (_, i) => ({
+          id: i,
+          x: Math.random() * 100,
+          y: Math.random() * 100
+        }))
+        setParticles(newParticles)
+      }, 4000)
     }
   }, [isOpen, wonItem])
 
@@ -72,61 +80,107 @@ export default function CaseOpening({ isOpen, wonItem, wonPromocode, onClose, on
     <Dialog open={isOpen} onOpenChange={() => !isSpinning && onClose()}>
       <DialogContent className="max-w-6xl bg-gradient-to-br from-background via-card to-background border-2 border-primary/20">
         {isSpinning ? (
-          <div className="py-8">
-            <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-pulse">
-              Крутим рулетку...
+          <div className="py-8 relative">
+            <div className="absolute inset-0 pointer-events-none">
+              {Array.from({length: 20}).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-2 h-2 bg-primary rounded-full animate-ping"
+                  style={{
+                    top: `${Math.random() * 100}%`,
+                    left: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 2}s`,
+                    animationDuration: `${1 + Math.random()}s`
+                  }}
+                />
+              ))}
+            </div>
+            
+            <h2 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-pulse relative z-10">
+              🎰 Крутим рулетку... 🎰
             </h2>
             
-            <div className="relative overflow-hidden h-48 bg-gradient-to-r from-transparent via-primary/10 to-transparent rounded-xl border-2 border-primary/30">
-              <div className="absolute inset-y-0 left-1/2 w-1 bg-gradient-to-b from-primary via-secondary to-accent z-10 shadow-lg shadow-primary/50"></div>
+            <div className="relative overflow-hidden h-56 bg-gradient-to-r from-transparent via-primary/20 to-transparent rounded-2xl border-4 border-primary/40 shadow-2xl shadow-primary/30">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 animate-pulse"></div>
+              
+              <div className="absolute inset-y-0 left-1/2 w-2 bg-gradient-to-b from-transparent via-primary to-transparent z-10 shadow-2xl shadow-primary/80 blur-sm"></div>
+              <div className="absolute inset-y-0 left-1/2 w-1 bg-gradient-to-b from-primary via-secondary to-accent z-20 shadow-lg shadow-primary/50"></div>
+              
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20">
+                <div className="text-4xl animate-bounce">⬇️</div>
+              </div>
               
               <div 
-                className="flex gap-4 py-8 px-4 absolute"
+                className="flex gap-4 py-10 px-4 absolute"
                 style={{
-                  animation: 'roulette-spin 3s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards',
+                  animation: 'roulette-spin 4s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards',
                   left: '-100%'
                 }}
               >
                 {rouletteItems.map((item, idx) => (
                   <div 
                     key={idx}
-                    className="min-w-[120px] flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg p-4 border-2"
+                    className="min-w-[140px] flex flex-col items-center justify-center bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl p-5 border-4 shadow-xl transform hover:scale-110 transition-transform"
                     style={{
-                      borderColor: `hsl(var(--${item.rarity === 'legendary' ? 'destructive' : item.rarity === 'epic' ? 'accent' : item.rarity === 'rare' ? 'primary' : 'muted'}))`
+                      borderColor: item.rarity === 'legendary' ? '#dc2626' : item.rarity === 'epic' ? '#8b5cf6' : item.rarity === 'rare' ? '#eab308' : '#6b7280',
+                      boxShadow: `0 0 20px ${item.rarity === 'legendary' ? '#dc262640' : item.rarity === 'epic' ? '#8b5cf640' : item.rarity === 'rare' ? '#eab30840' : '#6b728040'}`
                     }}
                   >
-                    <div className="text-5xl mb-2">
+                    <div className="text-6xl mb-3 animate-pulse">
                       {rarityEmojis[item.rarity as keyof typeof rarityEmojis]}
                     </div>
-                    <p className="text-xs font-bold text-center line-clamp-2">{item.name}</p>
+                    <p className="text-sm font-bold text-center line-clamp-2">{item.name}</p>
+                    <Badge className={`${rarityColors[item.rarity as keyof typeof rarityColors]} mt-2 text-xs`}>
+                      {item.rarity}
+                    </Badge>
                   </div>
                 ))}
               </div>
             </div>
+            
+            <div className="text-center mt-8 text-muted-foreground animate-pulse">
+              <p className="text-lg">✨ Удача улыбается тебе... ✨</p>
+            </div>
           </div>
         ) : showResult ? (
-          <div className="text-center space-y-6 py-8">
-            <div className="text-8xl animate-bounce mb-4">🎉</div>
+          <div className="text-center space-y-6 py-8 relative">
+            {particles.map((particle) => (
+              <div
+                key={particle.id}
+                className="absolute text-3xl animate-float pointer-events-none"
+                style={{
+                  left: `${particle.x}%`,
+                  top: `${particle.y}%`,
+                  animationDelay: `${particle.id * 0.05}s`,
+                  animationDuration: `${2 + Math.random()}s`
+                }}
+              >
+                {['🎉', '✨', '⭐', '💫', '🎊'][particle.id % 5]}
+              </div>
+            ))}
             
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              Поздравляем!
+            <div className="text-9xl animate-bounce mb-4">🎉</div>
+            
+            <h2 className="text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-pulse">
+              Поздравляем! 
             </h2>
             
-            <div className="bg-gradient-to-br from-primary/20 via-accent/20 to-secondary/20 p-8 rounded-2xl border-2 border-primary/30 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer"></div>
+            <div className="bg-gradient-to-br from-primary/30 via-accent/30 to-secondary/30 p-10 rounded-3xl border-4 border-primary/40 relative overflow-hidden shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-primary/5 to-accent/5"></div>
               
-              <div className="relative z-10 space-y-4">
-                <div className="text-7xl mb-4">
+              <div className="relative z-10 space-y-5">
+                <div className="text-9xl mb-6 animate-bounce" style={{animationDuration: '1s'}}>
                   {rarityEmojis[wonItem.rarity as keyof typeof rarityEmojis]}
                 </div>
                 
-                <h3 className="text-3xl font-bold">{wonItem.name}</h3>
+                <h3 className="text-4xl font-bold drop-shadow-lg">{wonItem.name}</h3>
                 
-                <Badge className={`${rarityColors[wonItem.rarity as keyof typeof rarityColors]} text-xl px-6 py-2`}>
-                  {wonItem.rarity.toUpperCase()}
+                <Badge className={`${rarityColors[wonItem.rarity as keyof typeof rarityColors]} text-2xl px-8 py-3 shadow-lg animate-pulse`}>
+                  {wonItem.rarity.toUpperCase()} ✨
                 </Badge>
                 
-                <p className="text-muted-foreground text-lg max-w-md mx-auto mt-4">
+                <p className="text-muted-foreground text-xl max-w-lg mx-auto mt-6 leading-relaxed">
                   {wonItem.description}
                 </p>
               </div>
@@ -165,8 +219,46 @@ export default function CaseOpening({ isOpen, wonItem, wonPromocode, onClose, on
             transform: translateX(0);
           }
           100% {
-            transform: translateX(calc(-120px * ${rouletteItems.length - 10} - 16px * ${rouletteItems.length - 10}));
+            transform: translateX(calc(-140px * ${rouletteItems.length - 10} - 16px * ${rouletteItems.length - 10}));
           }
+        }
+        
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          50% {
+            transform: translateY(-100px) rotate(180deg);
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-200px) rotate(360deg);
+            opacity: 0;
+          }
+        }
+        
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
         }
       `}</style>
     </Dialog>

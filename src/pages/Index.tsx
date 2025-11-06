@@ -108,10 +108,13 @@ export default function Index() {
   const loadCases = async () => {
     try {
       const res = await fetch(API.cases)
+      if (!res.ok) throw new Error('Network error')
       const data = await res.json()
-      setCases(data)
+      if (Array.isArray(data)) {
+        setCases(data)
+      }
     } catch (error) {
-      toast({ title: 'Ошибка загрузки кейсов', variant: 'destructive' })
+      console.error('Error loading cases:', error)
     }
   }
 
@@ -119,10 +122,13 @@ export default function Index() {
     if (!user) return
     try {
       const res = await fetch(`${API.promocodes}?user_id=${user.id}`)
+      if (!res.ok) throw new Error('Network error')
       const data = await res.json()
-      setPromocodes(data)
+      if (Array.isArray(data)) {
+        setPromocodes(data)
+      }
     } catch (error) {
-      toast({ title: 'Ошибка загрузки промокодов', variant: 'destructive' })
+      console.error('Error loading promocodes:', error)
     }
   }
 
@@ -161,6 +167,28 @@ export default function Index() {
     }
   }
 
+  const playSound = (type: 'spin' | 'win') => {
+    const audioContext = new AudioContext()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    if (type === 'spin') {
+      oscillator.frequency.value = 200
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1)
+    } else {
+      oscillator.frequency.value = 800
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+    }
+    
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.3)
+  }
+
   const handleOpenCase = async (caseId: number) => {
     if (!user) {
       setAuthOpen(true)
@@ -170,6 +198,7 @@ export default function Index() {
     setOpeningCaseId(caseId)
     setOpeningCase(true)
     setWonItem(null)
+    playSound('spin')
     
     await loadCaseItems(caseId)
 
@@ -185,6 +214,7 @@ export default function Index() {
         setWonItem(data.item)
         setWonPromocode(data.promo_code)
         setUser({ ...user, balance: data.new_balance })
+        setTimeout(() => playSound('win'), 4000)
         loadPromocodes()
       } else {
         toast({ title: data.error || 'Ошибка открытия кейса', variant: 'destructive' })
@@ -241,10 +271,13 @@ export default function Index() {
   const loadMarket = async () => {
     try {
       const res = await fetch(`${API.promocodes}?action=market`)
+      if (!res.ok) throw new Error('Network error')
       const data = await res.json()
-      setMarketItems(data)
+      if (Array.isArray(data)) {
+        setMarketItems(data)
+      }
     } catch (error) {
-      console.error('Error loading market')
+      console.error('Error loading market:', error)
     }
   }
 
@@ -380,8 +413,15 @@ export default function Index() {
               <p className="text-xl text-muted-foreground relative z-10">Открывай кейсы и получай промокоды для игры!</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {cases.map((caseItem) => (
+            {cases.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="text-9xl mb-6 animate-bounce">📦</div>
+                <h3 className="text-2xl font-bold mb-3">Кейсы загружаются...</h3>
+                <p className="text-muted-foreground">Подожди немного</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {cases.map((caseItem) => (
                 <Card 
                   key={caseItem.id} 
                   className="case-card-glow overflow-hidden hover:scale-105 transition-all duration-300 relative group bg-gradient-to-br from-card to-card/50"
@@ -415,8 +455,9 @@ export default function Index() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="market" className="space-y-6">
